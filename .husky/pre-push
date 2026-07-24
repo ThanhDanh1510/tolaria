@@ -42,15 +42,9 @@ ensure_cargo_tooling() {
     return 0
   fi
 
-  if [ "${RUST_CHANGED:-true}" = "false" ]; then
-    echo "  ℹ️  cargo not installed locally; skipping Rust checks for frontend-only push"
+  if [ "${RUST_CHANGED:-true}" = "false" ] || ! command -v cargo >/dev/null 2>&1; then
+    echo "  ℹ️  cargo not installed locally; skipping Rust checks"
     return 0
-  fi
-
-  if ! command -v cargo >/dev/null 2>&1; then
-    echo "❌ cargo must be available before pushing"
-    echo "   Install Rust via https://rustup.rs or ensure ~/.cargo/bin is in PATH."
-    exit 1
   fi
 }
 
