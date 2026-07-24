@@ -239,7 +239,7 @@ export function MathBlockEditor({ block, editor }: MathBlockEditorProps) {
     <Button
       type="button"
       variant="ghost"
-      className="math-block-shell h-auto min-h-9"
+      className="math-block-shell h-auto min-h-9 whitespace-normal py-2 px-3 overflow-visible"
       onDoubleClick={startEditing}
     >
       <MathRender latex={currentLatex} displayMode />

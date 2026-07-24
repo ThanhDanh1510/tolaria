@@ -110,10 +110,13 @@ describe('MathBlockEditor', () => {
     expect(source).not.toHaveClass('focus-visible:ring-[3px]')
   })
 
-  it('keeps display math selection chrome scoped to the rendered formula width', () => {
+  it('keeps display math selection chrome scoped to the rendered formula width and allows full height expansion', () => {
     const editorThemeCss = readFileSync(`${process.cwd()}/src/components/EditorTheme.css`, 'utf8')
 
     expect(editorThemeCss).toContain('.editor__blocknote-container .math-block-shell {')
+    expect(editorThemeCss).toContain('height: auto;')
+    expect(editorThemeCss).toContain('min-height: 2.25rem;')
+    expect(editorThemeCss).toContain('white-space: normal;')
     expect(editorThemeCss).toContain('max-width: 100%;')
     expect(editorThemeCss).toContain('overflow-x: auto;')
     expect(editorThemeCss).toContain('.editor__blocknote-container .math-block-shell:not(.math-block-shell--editing) {')
@@ -121,6 +124,14 @@ describe('MathBlockEditor', () => {
     expect(editorThemeCss).toContain('margin-inline: auto;')
     expect(editorThemeCss).toContain('.editor__blocknote-container .math-block-shell--editing {')
     expect(editorThemeCss).toContain('width: 100%;')
+  })
+
+  it('renders preview math button with auto height and whitespace wrapping classes', () => {
+    renderMathBlockEditor()
+    const button = document.querySelector('button.math-block-shell')
+    expect(button).toHaveClass('h-auto')
+    expect(button).toHaveClass('min-h-9')
+    expect(button).toHaveClass('whitespace-normal')
   })
 
   it('does not stack divider bottom spacing with following heading top spacing', () => {
