@@ -209,18 +209,18 @@ if ! run_sidecar_automatic_checks; then
 
   # ── 3. Rust lint (clippy + fmt) — fast, run before coverage ─────────────
   echo ""
-  if [ "$RUST_CHANGED" = true ]; then
+  if [ "$RUST_CHANGED" = true ] && command -v cargo >/dev/null 2>&1; then
     echo "🔧 [3/6] Clippy + rustfmt..."
     cargo clippy --manifest-path=src-tauri/Cargo.toml -- -D warnings
     cargo fmt --manifest-path=src-tauri/Cargo.toml -- --check
     echo "  ✅ Rust lint OK"
   else
-    echo "⏭️  [3/6] Rust lint — skipped (no src-tauri/ changes)"
+    echo "⏭️  [3/6] Rust lint — skipped (no src-tauri/ changes or cargo unavailable)"
   fi
 
   # ── 4. Rust coverage (≥85% lines) ──────────────────────────────────────
   echo ""
-  if [ "$RUST_CHANGED" = true ]; then
+  if [ "$RUST_CHANGED" = true ] && command -v cargo >/dev/null 2>&1; then
     LLVM_COV_FLAGS="--no-clean"
     if [ "${LAPUTA_FULL_COVERAGE:-0}" = "1" ]; then
       LLVM_COV_FLAGS=""
@@ -239,7 +239,7 @@ if ! run_sidecar_automatic_checks; then
       -- --test-threads=1
     echo "  ✅ Rust coverage OK"
   else
-    echo "⏭️  [4/6] Rust coverage — skipped (no src-tauri/ changes)"
+    echo "⏭️  [4/6] Rust coverage — skipped (no src-tauri/ changes or cargo unavailable)"
   fi
 
   # ── 5. Playwright core smoke lane (if any exist) ──────────────────────
