@@ -18,6 +18,7 @@ const child = spawn(
       TOLARIA_VITE_CACHE_DIR: viteCacheDir,
     },
     stdio: ['pipe', 'inherit', 'inherit'],
+    shell: process.platform === 'win32',
   },
 )
 
