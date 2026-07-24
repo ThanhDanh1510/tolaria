@@ -42,6 +42,8 @@ describe('LazyEditor', () => {
     await act(async () => { editorModule.resolve() })
     expect(await screen.findByText('Loaded editor')).toBeInTheDocument()
     expect(startup.markStartupPhase).toHaveBeenCalledWith('editor_module_loaded')
-    expect(startup.markStartupPhase).toHaveBeenCalledWith('editor_committed')
+    await vi.waitFor(() => {
+      expect(startup.markStartupPhase).toHaveBeenCalledWith('editor_committed')
+    })
   })
 })
