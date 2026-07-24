@@ -155,8 +155,6 @@
       "qs": "6.15.2",
       "rollup": "4.59.0",
       "undici": "7.25.0",
-      "@opentelemetry/core": "^2.8.0",
-      "ip-address": "^10.1.1",
       "@blocknote/core>uuid": "11.1.1"
     },
     "patchedDependencies": {
