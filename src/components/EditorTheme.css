@@ -374,16 +374,34 @@
   height: auto;
   min-height: 2.25rem;
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
   white-space: normal;
   padding: 6px 12px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
-.editor__blocknote-container .math-block-shell .katex-display {
+.editor__blocknote-container .math-block-shell::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.editor__blocknote-container .math-block-shell .katex-display,
+.editor__blocknote-container .math-block-shell .katex,
+.editor__blocknote-container .math-block-shell .math {
   margin: 0.25em 0;
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: visible;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.editor__blocknote-container .math-block-shell .katex-display::-webkit-scrollbar,
+.editor__blocknote-container .math-block-shell .katex::-webkit-scrollbar,
+.editor__blocknote-container .math-block-shell .math::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .editor__blocknote-container .math-block-shell:not(.math-block-shell--editing) {
