@@ -33,22 +33,41 @@ const scannerEnvironment = {
   LANG: 'en_US.UTF-8',
   LC_ALL: 'en_US.UTF-8',
 }
-const install = spawnSync(cli, ['install'], { cwd: root, encoding: 'utf8', env: scannerEnvironment })
+
+function runCli(args, options = {}) {
+  const env = { ...scannerEnvironment, ...options.env }
+  if (process.platform === 'win32') {
+    const gitBash = 'C:\\Program Files\\Git\\bin\\bash.exe'
+    const bashCmd = existsSync(gitBash) ? gitBash : 'bash'
+    return spawnSync(bashCmd, [cli, ...args], { ...options, env })
+  }
+  return spawnSync(cli, args, { ...options, env })
+}
+
+const install = runCli(['install'], { cwd: root, encoding: 'utf8' })
 if (install.status !== 0) {
   console.error('Codacy gate: scanner installation failed.')
   process.exit(1)
+}
+
+function safeJsonParse(text) {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return JSON.parse(text.replace(/\\/g, '/'))
+  }
 }
 
 const temporaryDirectory = mkdtempSync(join(tmpdir(), 'tolaria-codacy-'))
 const failures = []
 try {
   const changedFiles = [...additions.keys()].map((path) => path.slice(root.length + 1)).filter((path) => existsSync(resolve(root, path)))
-  const biome = spawnSync('pnpm', ['exec', 'biome', 'lint', ...changedFiles, '--reporter=json', '--max-diagnostics=none'], {
+  const biome = spawnSync(process.execPath, ['node_modules/@biomejs/biome/bin/biome', 'lint', ...changedFiles, '--reporter=json', '--max-diagnostics=none'], {
     cwd: root,
     encoding: 'utf8',
   })
   if (!biome.stdout) failures.push({ message: 'Biome did not produce an analysis report', tool: 'Biome' })
-  else failures.push(...biomeGateFailures(JSON.parse(biome.stdout), additions, root))
+  else failures.push(...biomeGateFailures(safeJsonParse(biome.stdout), additions, root))
 
   const eslintFiles = changedFiles.filter(path => /\.(?:[cm]?js|jsx|ts|tsx)$/u.test(path))
   if (eslintFiles.length > 0) {
@@ -64,7 +83,7 @@ try {
       failures.push({ message: 'security ESLint scanner did not produce a valid report', tool: 'Codacy ESLint security rules' })
     } else {
       try {
-        failures.push(...eslintGateFailures(JSON.parse(eslint.stdout), additions))
+        failures.push(...eslintGateFailures(safeJsonParse(eslint.stdout), additions))
       } catch {
         failures.push({ message: 'security ESLint report was not valid JSON', tool: 'Codacy ESLint security rules' })
       }
@@ -73,16 +92,15 @@ try {
 
   for (const tool of ['opengrep', 'trivy']) {
     const output = join(temporaryDirectory, `${tool}.sarif`)
-    const result = spawnSync(cli, ['analyze', '.', '--tool', tool, '--format', 'sarif', '--output', output], {
+    const result = runCli(['analyze', '.', '--tool', tool, '--format', 'sarif', '--output', output], {
       cwd: root,
       encoding: 'utf8',
-      env: scannerEnvironment,
     })
     if (result.status !== 0 || !existsSync(output)) {
       failures.push({ message: `${tool} exited unsuccessfully`, tool })
       continue
     }
-    failures.push(...sarifGateFailures(JSON.parse(readFileSync(output, 'utf8')), additions, root))
+    failures.push(...sarifGateFailures(safeJsonParse(readFileSync(output, 'utf8')), additions, root))
   }
 } finally {
   rmSync(temporaryDirectory, { force: true, recursive: true })

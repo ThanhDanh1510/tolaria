@@ -87,8 +87,17 @@ download() {
 }
 
 download_cli() {
-    # OS name lower case
-    suffix=$(echo "$os_name" | tr '[:upper:]' '[:lower:]')
+    local ext="tar.gz"
+    case "$os_name" in
+    MINGW*|MSYS*|CYGWIN*|Windows*)
+      suffix="windows"
+      bin_name="codacy-cli-v2.exe"
+      ext="zip"
+      ;;
+    *)
+      suffix=$(echo "$os_name" | tr '[:upper:]' '[:lower:]')
+      ;;
+    esac
 
     local bin_folder="$1"
     local bin_path="$2"
@@ -97,11 +106,15 @@ download_cli() {
     if [ ! -f "$bin_path" ]; then
         echo "📥 Downloading CLI version $version..."
 
-        remote_file="codacy-cli-v2_${version}_${suffix}_${arch}.tar.gz"
+        remote_file="codacy-cli-v2_${version}_${suffix}_${arch}.${ext}"
         url="https://github.com/codacy/codacy-cli-v2/releases/download/${version}/${remote_file}"
 
         download "$url" "$bin_folder"
-        tar xzfv "${bin_folder}/${remote_file}" -C "${bin_folder}"
+        if [ "$ext" = "zip" ]; then
+            unzip -o "${bin_folder}/${remote_file}" -d "${bin_folder}"
+        else
+            tar xzfv "${bin_folder}/${remote_file}" -C "${bin_folder}"
+        fi
     fi
 }
 
