@@ -7,8 +7,9 @@ import { join } from 'node:path'
 const port = process.argv[2] ?? process.env.PORT ?? '41741'
 const viteCacheDir = process.env.TOLARIA_VITE_CACHE_DIR ?? join(tmpdir(), `tolaria-vite-smoke-${port}`)
 
+const pnpmCmd = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
 const child = spawn(
-  'pnpm',
+  pnpmCmd,
   ['dev', '--host', '127.0.0.1', '--port', port, '--strictPort'],
   {
     cwd: process.cwd(),

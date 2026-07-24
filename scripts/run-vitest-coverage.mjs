@@ -33,7 +33,8 @@ const maxAttempts = 2
 // is something node can actually load as a module.
 const packageManagerExec = process.env.npm_execpath
 const isJsExecpath = packageManagerExec && /\.[mc]?js$/i.test(packageManagerExec)
-const command = isJsExecpath ? process.execPath : 'pnpm'
+const pnpmCmd = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+const command = isJsExecpath ? process.execPath : pnpmCmd
 const baseCommandArgs = isJsExecpath
   ? [packageManagerExec, 'exec', 'vitest', 'run', '--coverage']
   : ['exec', 'vitest', 'run', '--coverage']
@@ -111,6 +112,7 @@ async function runCoverageAttempt(attempt, retryMode) {
   let output = ''
 
   const exitCode = await new Promise((resolveExit, rejectExit) => {
+    const isCmdFile = process.platform === 'win32' && typeof command === 'string' && /\.cmd$/i.test(command)
     const child = spawn(command, commandArgs, {
       cwd: rootDir,
       env: {
@@ -118,6 +120,7 @@ async function runCoverageAttempt(attempt, retryMode) {
         VITEST_COVERAGE_DIR: runCoverageDir,
       },
       stdio: ['inherit', 'pipe', 'pipe'],
+      shell: isCmdFile,
     })
 
     const handleOutput = (stream, target) => {
@@ -152,10 +155,12 @@ async function runCoverageAttempt(attempt, retryMode) {
 
 async function clearVitestCache() {
   const exitCode = await new Promise((resolveExit, rejectExit) => {
+    const isCmdFile = process.platform === 'win32' && typeof command === 'string' && /\.cmd$/i.test(command)
     const child = spawn(command, clearCacheCommandArgs, {
       cwd: rootDir,
       env: process.env,
       stdio: 'inherit',
+      shell: isCmdFile,
     })
 
     child.on('error', rejectExit)

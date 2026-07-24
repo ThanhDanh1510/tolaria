@@ -59,7 +59,8 @@ function shardCoverageDir(shardIndex) {
 }
 
 async function clearVitestCache() {
-  const exitCode = await spawnCommand('clear-cache', 'pnpm', ['exec', 'vitest', '--clearCache'], process.env)
+  const pnpmCmd = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+  const exitCode = await spawnCommand('clear-cache', pnpmCmd, ['exec', 'vitest', '--clearCache'], process.env)
   if (exitCode !== 0) {
     throw new Error(`Vitest cache clear failed with exit code ${exitCode}`)
   }
@@ -85,10 +86,12 @@ function runShard(shardIndex) {
 function spawnCommand(name, command, args, env) {
   return new Promise((resolveExit, rejectExit) => {
     console.log(`[${name}] started`)
+    const isCmdFile = process.platform === 'win32' && typeof command === 'string' && /\.cmd$/i.test(command)
     const child = spawn(command, args, {
       cwd: rootDir,
       env,
       stdio: ['inherit', 'pipe', 'pipe'],
+      shell: isCmdFile,
     })
 
     child.stdout?.on('data', (chunk) => process.stdout.write(`[${name}] ${chunk}`))
