@@ -744,12 +744,14 @@ Defined in `src/utils/durableMarkdownBlocks.ts`, `src/utils/editorDurableMarkdow
 Defined in `src/components/tolariaEditorFormatting.tsx` and `src/components/tolariaEditorFormattingConfig.ts`:
 
 - `SingleEditorView` disables BlockNote's default formatting toolbar, `/` menu, and side menu, then mounts Tolaria-owned controllers so the visible formatting surface matches Tolaria's markdown round-trip guarantees.
-- `SingleEditorView` owns a whitespace mouse-selection bridge around BlockNote and its rich-editor scroll area: drag starts that land outside the editable text DOM are remapped through the ProseMirror view with clamped coordinates, while drags below the rendered document fall back to the document end. Drags that begin inside BlockNote's contenteditable surface, toolbars, side menu, dialogs, or non-primary mouse buttons stay on BlockNote/native handling.
+- `SingleEditorView` owns a whitespace mouse-selection bridge around BlockNote and its rich-editor scroll area: drag starts that land outside the editable text DOM are remapped through the ProseMirror view with clamped coordinates, while drags below the rendered document fall back to the document end. Drags that begin inside BlockNote's contenteditable surface, toolbars, side menu, dialogs, or non-primary mouse buttons stay on BlockNote/native handling. Unmodified primary clicks inside editable content also remain native unless WebKit has dropped the DOM range; only that missing-caret state is remapped through the ProseMirror coordinate bridge so the current note recovers focus without a note-list round trip.
 - `editorRichCopy.ts` owns rich-editor copy serialization for external apps. Normal selections use BlockNote's external clipboard HTML so tables, lists, checklists, and inline marks paste as rich content outside Tolaria, while `SingleEditorView` still normalizes `text/plain` and keeps fenced code-block selections on raw code text.
 - The formatting toolbar only exposes inline controls that persist through Tolaria's Markdown serialization pipeline: bold, italic, strike, inline code, `==highlight==`, nesting, and link creation. Controls that BlockNote can render temporarily but Tolaria cannot faithfully persist, such as underline, color, alignment, and the block-type dropdown, are hidden instead of appearing to work and later disappearing.
 - Tolaria's formatting-toolbar controller also keeps file/image actions mounted across the tiny hover gap between an image block and the floating toolbar, and while the toolbar itself is hovered, so image controls remain usable instead of collapsing mid-interaction.
 - `useEditorComposing` tracks editor-owned IME composition events and closes the floating formatting toolbar during composition plus a short post-composition settle window, keeping CJK candidate windows unobstructed without changing normal selection toolbar behavior.
 - `createImeCompositionKeyGuardExtension()` intercepts composing `Enter` keydown events before BlockNote's list shortcuts see them, so Korean/Japanese/Chinese IMEs can commit text at the start of list items without Tolaria splitting the current bullet. It stops editor shortcut propagation only; it does not prevent the browser/IME default composition action.
+- `createRichEditorEmptyListNavigationExtension()` keeps persisted empty bullet, checklist, numbered-list, and toggle-list items reachable by plain vertical arrows. It intervenes only when the caret is at the current block's visual edge and the immediately adjacent block is an empty list item, leaving wrapped lines, modified selection, IME composition, and code-block navigation on their existing paths.
+- `createRichEditorListTabExtension()` owns Tab and Shift+Tab while the caret is in a rich-editor list item. It applies BlockNote's supported nest or unnest command when available and still consumes the key at a nesting boundary, preventing browser focus traversal into app chrome without affecting code blocks or the raw editor.
 - `createMarkdownHighlightShortcutExtension()` owns the rich-editor Cmd/Ctrl+Shift+M formatting shortcut. It skips IME composition and read-only editors, calls the same highlight style toggle as the formatting toolbar, and records `markdown_highlight_shortcut_used` with keyboard-only metadata.
 - `createTodoBlockShortcutExtension()` owns the editor-local Cmd/Ctrl+T paragraph/checklist toggle. It only runs from the mounted editor surface, skips IME composition and read-only editors, and calls `toggleCurrentBlockTodoType()` so the shortcut shares block-type conversion and `editor_block_type_changed` analytics with menu and command-palette transformations.
 - `richEditorBlockSelectionExtension.ts` owns Notion-style block selection as an editor-level ProseMirror plugin. A first `Escape` promotes the current caret or native text selection into one or more selected blocks, renders block-level decoration chrome, and keeps arrow/delete/enter handling inside the editor; a second `Escape` clears the block selection without preventing the app-level note-list escape path from taking over. Native drag text selection remains content selection, while block mode uses decoration chrome so empty spacer lines are not treated as selected content.
@@ -891,7 +893,7 @@ The Inspector panel (`src/components/Inspector.tsx`) is composed of sub-panels:
 
 ## Search
 
-### Search
+### Keyword Search
 
 Keyword-based search scans all vault `.md` files using `walkdir` and applies the same Gitignored-content visibility filter as vault loading:
 
@@ -1053,7 +1055,7 @@ Managed by `useSettings` hook and `SettingsPanel` component. `theme_mode` is ins
 - **`TelemetryConsentDialog`** — First-launch dialog asking user to opt in to anonymous crash reporting. Two buttons: accept (sets `telemetry_consent: true`, generates `anonymous_id`) or decline.
 - **`TelemetryToggle`** — Checkbox component in `SettingsPanel` for crash reporting and analytics toggles.
 
-### Hooks
+### Telemetry Hooks
 - **`useTelemetry(settings, loaded)`** — Reactively initializes/tears down Sentry and PostHog based on settings. Called once in `App`.
 
 ### Libraries
@@ -1070,14 +1072,14 @@ Managed by `useSettings` hook and `SettingsPanel` component. `theme_mode` is ins
 - **Automatic update checks** — `automatic_update_checks_changed` records only whether startup/background update checks were enabled or disabled.
 - **All Notes visibility** — `all_notes_visibility_changed` records only the toggled category and enabled state.
 
-### Tauri Commands
+### Telemetry Commands
 - **`reinit_telemetry`** — Re-reads settings and toggles Rust Sentry on/off. Called from frontend when user changes crash reporting setting.
 
 ---
 
 ## Updates & Feature Flags
 
-### Hooks
+### Update Hooks
 - **`useUpdater(releaseChannel, automaticChecksEnabled)`** — Channel-aware updater state machine. When automatic checks are enabled, it checks the selected feed after startup; manual checks always remain available. It surfaces checking/available/downloading/ready states and delegates install work to Rust.
 - **`useFeatureFlag(flag)`** — Returns boolean for a named feature flag. Checks `localStorage` override (`ff_<name>`), then falls back to telemetry-backed evaluation. Type-safe via `FeatureFlagName` union.
 
@@ -1089,11 +1091,11 @@ Managed by `useSettings` hook and `SettingsPanel` component. `theme_mode` is ins
 - **`src-tauri/src/app_updater.rs`** — Chooses the correct update endpoint and adapts Tauri updater results into frontend-friendly payloads. Stable uses the public `stable/latest.json` feed. Alpha resolves the most recently published non-draft `alpha-vYYYY.M.D-alpha.NNNN` GitHub Release asset named `alpha-latest.json`, then falls back to the public `alpha/latest.json` feed if the release lookup is unavailable. Normal updates require increasing semver; ADR-0173 adds one bounded exception for a future-poisoned calendar build to accept a candidate dated today or tomorrow.
 - **`src-tauri/src/commands/version.rs`** — Formats app build/version labels for the status bar, including calendar alpha labels and legacy release compatibility.
 
-### Tauri Commands
+### Update Commands
 - **`check_for_app_update`** — Channel-aware update manifest lookup.
 - **`download_and_install_app_update`** — Channel-aware download/install with streamed progress events.
 
 ### CI/CD
-- **`scripts/release-version.mjs`** — Tested calendar-version policy used by CircleCI. It validates stable tag dates, preserves the same-day-stable alpha safeguard, and produces the one-time future-version recovery bridge from ADR-0173.
+- **`scripts/release-version.mjs`** — Tested calendar-version policy shared by authoritative CircleCI releases and the compatibility GitHub Actions release workflows. It emits shell or GitHub-output formats from the same result, validates stable tag dates, preserves the same-day-stable alpha safeguard, and produces the one-time future-version recovery bridge from ADR-0173.
 - **`.circleci/config.yml`** — Authoritative CI/CD graph for portable validation and native releases. The validation workflow reuses the `.chunk/` frontend, Rust, and Playwright lane scripts so pre-push and outer-loop gates stay aligned. Alpha prereleases run from qualifying `main` pushes using calendar-semver technical versions (`YYYY.M.D-alpha.N`) and zero-padded GitHub tags (`alpha-vYYYY.M.D-alpha.NNNN`). Stable releases run from `vYYYY-MM-DD` and legacy `stable-vYYYY.M.D` tags, and future-dated stable tags fail closed. Both channels fan out signed macOS Apple Silicon/Intel, Linux x64, and Windows x64 builds; stable adds macOS DMGs. Windows always requires Tauri updater signatures and adds Authenticode plus `Get-AuthenticodeSignature` verification when certificate secrets are present. Linux uses Tauri's stock linuxdeploy AppImage output plugin and validates DEB/RPM desktop metadata plus installer and updater-signature artifacts. Downstream jobs assemble `alpha-latest.json` or `stable-latest.json`, publish GitHub Releases through the restricted release context, rebuild public download/history pages, and commit generated Pages output to `gh-pages`. macOS assets retain the `Tolaria_<version>_macOS_Silicon` and `Tolaria_<version>_macOS_Intel` base names. Packaged builds pass the computed version as `VITE_SENTRY_RELEASE`.
 - **Beta cohorts** are handled in PostHog targeting only. There is no beta updater feed.
